@@ -318,13 +318,21 @@
     </nav>
 
     
-      <div id="utterances-container"></div>
-      <script src="https://utteranc.es/client.js"
-        repo="HwFee/HwFee.github.io"
-        issue-term="path"
-        theme="github-light"
-        crossorigin="anonymous"
-        async>
+      <div id="gitalk-container"></div>
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+      <script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+      <script>
+        var gitalk = new Gitalk({
+          clientID: 'Ov23liHOHiRY4389DG1T',
+          clientSecret: 'ac28d84114b2cfc7177a7a2dc8e29d697974c9b1',
+          repo: 'HwFee.github.io',
+          owner: 'HwFee',
+          admin: ["HwFee"],
+          id: '2026/03/11/test-post/',
+          distractionFreeMode: false,
+          language: 'zh-CN'
+        });
+        gitalk.render('gitalk-container');
       </script>
     
 
