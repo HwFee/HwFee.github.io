@@ -31,9 +31,12 @@
     this.prefersReducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.viewportScale = 1;
     this.lastFrameTime = 0;
+    this.performanceProfile = null;
     this.boundThemeObserver = null;
     this.boundResize = null;
     this.boundBeforeUnload = null;
+    this.boundVisibilityChange = null;
+    this.boundConnectionChange = null;
     this.init();
     instance = this;
   }
@@ -73,12 +76,35 @@
     this.ctx = this.canvas.getContext("2d");
   };
 
+  SnowEffect.prototype.updatePerformanceProfile = function () {
+    const width = window.innerWidth;
+    const compactViewport = width <= 768;
+    const veryCompactViewport = width <= 480;
+    const lowCpu = typeof navigator.hardwareConcurrency === "number" && navigator.hardwareConcurrency <= 4;
+    const lowMemory = typeof navigator.deviceMemory === "number" && navigator.deviceMemory <= 4;
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const saveData = !!(conn && conn.saveData);
+    const lowBandwidth = !!(conn && conn.effectiveType && (conn.effectiveType === "slow-2g" || conn.effectiveType === "2g" || conn.effectiveType === "3g"));
+    const constrained = compactViewport || lowCpu || lowMemory || saveData || lowBandwidth;
+
+    this.performanceProfile = {
+      dpr: constrained ? 1 : Math.min(window.devicePixelRatio || 1, 2),
+      densityScale: veryCompactViewport ? 0.34 : compactViewport ? 0.48 : width <= 1024 ? 0.76 : 1,
+      maxFps: veryCompactViewport ? 20 : compactViewport ? 26 : constrained ? 32 : this.config.maxFps,
+      useFilterEffects: !constrained,
+      useGlow: !constrained,
+      useGradient: !constrained
+    };
+  };
+
   SnowEffect.prototype.resize = function () {
     if (!this.canvas || !this.ctx) {
       return;
     }
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this.updatePerformanceProfile();
+
+    const dpr = this.performanceProfile.dpr;
     const width = window.innerWidth;
     const height = window.innerHeight;
 
@@ -88,20 +114,14 @@
     this.canvas.style.height = height + "px";
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    if (width <= 640) {
-      this.viewportScale = 0.58;
-    } else if (width <= 1024) {
-      this.viewportScale = 0.78;
-    } else {
-      this.viewportScale = 1;
-    }
+    this.viewportScale = this.performanceProfile.densityScale;
   };
 
   SnowEffect.prototype.getParticleCount = function () {
     if (this.prefersReducedMotion) {
       return 0;
     }
-    return Math.max(6, Math.round(this.config.density * this.viewportScale));
+    return Math.max(4, Math.round(this.config.density * this.viewportScale));
   };
 
   SnowEffect.prototype.normalizeType = function (type) {
@@ -148,13 +168,13 @@
       rotation: Math.random() * Math.PI * 2,
       rotationSpeed: (Math.random() - 0.5) * (0.001 + layer * 0.004),
       opacity: 0.58 + layer * 0.28,
-      blur: layer < 0.18 ? 1.4 : layer < 0.48 ? 0.55 : 0,
+      blur: this.performanceProfile && this.performanceProfile.useFilterEffects ? (layer < 0.18 ? 1.4 : layer < 0.48 ? 0.55 : 0) : 0,
       squish: 0.72 + Math.random() * 0.28,
       sway: 0.94 + Math.random() * 0.2,
       layer: layer,
       type: normalizedType,
       color: palette[Math.floor(Math.random() * palette.length)],
-      glow: 6 + layer * 12
+      glow: this.performanceProfile && this.performanceProfile.useGlow ? 6 + layer * 12 : 0
     };
   };
 
@@ -216,6 +236,31 @@
       this.saveState();
     };
     window.addEventListener("beforeunload", this.boundBeforeUnload);
+
+    this.boundVisibilityChange = () => {
+      if (document.hidden) {
+        if (this.animationId) {
+          cancelAnimationFrame(this.animationId);
+          this.animationId = null;
+        }
+        return;
+      }
+
+      if (this.isRunning && !this.animationId && !this.prefersReducedMotion) {
+        this.lastFrameTime = 0;
+        this.animationId = requestAnimationFrame((timestamp) => this.animate(timestamp));
+      }
+    };
+    document.addEventListener("visibilitychange", this.boundVisibilityChange);
+
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (conn && typeof conn.addEventListener === "function") {
+      this.boundConnectionChange = () => {
+        this.resize();
+        this.ensureParticles();
+      };
+      conn.addEventListener("change", this.boundConnectionChange);
+    }
   };
 
   SnowEffect.prototype.drawSakura = function (particle) {
@@ -227,9 +272,13 @@
     ctx.rotate(particle.rotation);
     ctx.scale(1, particle.squish);
     ctx.globalAlpha = particle.opacity;
-    ctx.filter = particle.blur ? "blur(" + particle.blur + "px)" : "none";
-    ctx.shadowColor = this.mixColor(particle.color, "#ffffff", 0.35);
-    ctx.shadowBlur = particle.glow;
+    if (this.performanceProfile.useFilterEffects) {
+      ctx.filter = particle.blur ? "blur(" + particle.blur + "px)" : "none";
+    }
+    if (this.performanceProfile.useGlow) {
+      ctx.shadowColor = this.mixColor(particle.color, "#ffffff", 0.35);
+      ctx.shadowBlur = particle.glow;
+    }
 
     ctx.beginPath();
     ctx.moveTo(0, -size * 0.56);
@@ -239,23 +288,29 @@
     ctx.bezierCurveTo(-size * 0.72, -size * 0.06, -size * 0.4, -size * 0.68, 0, -size * 0.56);
     ctx.closePath();
 
-    const gradient = ctx.createLinearGradient(0, -size * 0.6, 0, size * 0.8);
-    gradient.addColorStop(0, this.mixColor(particle.color, "#ffffff", 0.42));
-    gradient.addColorStop(0.45, this.mixColor(particle.color, "#fff7fb", 0.18));
-    gradient.addColorStop(0.72, particle.color);
-    gradient.addColorStop(1, this.mixColor(particle.color, "#f48fb1", 0.36));
-    ctx.fillStyle = gradient;
+    if (this.performanceProfile.useGradient) {
+      const gradient = ctx.createLinearGradient(0, -size * 0.6, 0, size * 0.8);
+      gradient.addColorStop(0, this.mixColor(particle.color, "#ffffff", 0.42));
+      gradient.addColorStop(0.45, this.mixColor(particle.color, "#fff7fb", 0.18));
+      gradient.addColorStop(0.72, particle.color);
+      gradient.addColorStop(1, this.mixColor(particle.color, "#f48fb1", 0.36));
+      ctx.fillStyle = gradient;
+    } else {
+      ctx.fillStyle = particle.color;
+    }
     ctx.fill();
 
-    ctx.beginPath();
-    ctx.arc(0, size * 0.08, size * 0.08, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(255, 240, 170, 0.9)";
-    ctx.fill();
+    if (this.performanceProfile.useGradient) {
+      ctx.beginPath();
+      ctx.arc(0, size * 0.08, size * 0.08, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255, 240, 170, 0.9)";
+      ctx.fill();
 
-    ctx.beginPath();
-    ctx.ellipse(-size * 0.12, -size * 0.14, size * 0.18, size * 0.07, -0.5, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(255, 255, 255, 0.32)";
-    ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.12, -size * 0.14, size * 0.18, size * 0.07, -0.5, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.32)";
+      ctx.fill();
+    }
 
     ctx.restore();
   };
@@ -268,7 +323,9 @@
     ctx.translate(particle.x, particle.y);
     ctx.rotate(particle.rotation);
     ctx.globalAlpha = particle.opacity;
-    ctx.filter = particle.blur ? "blur(" + particle.blur + "px)" : "none";
+    if (this.performanceProfile.useFilterEffects) {
+      ctx.filter = particle.blur ? "blur(" + particle.blur + "px)" : "none";
+    }
 
     ctx.beginPath();
     ctx.moveTo(0, -size * 0.6);
@@ -300,7 +357,9 @@
     ctx.translate(particle.x, particle.y);
     ctx.rotate(particle.rotation);
     ctx.globalAlpha = particle.opacity;
-    ctx.filter = particle.blur ? "blur(" + particle.blur + "px)" : "none";
+    if (this.performanceProfile.useFilterEffects) {
+      ctx.filter = particle.blur ? "blur(" + particle.blur + "px)" : "none";
+    }
     ctx.fillStyle = particle.color;
     ctx.beginPath();
 
@@ -388,7 +447,7 @@
       return;
     }
 
-    const frameInterval = 1000 / this.config.maxFps;
+    const frameInterval = 1000 / this.performanceProfile.maxFps;
     if (!this.lastFrameTime) {
       this.lastFrameTime = timestamp;
     }
@@ -457,6 +516,13 @@
     }
     if (this.boundBeforeUnload) {
       window.removeEventListener("beforeunload", this.boundBeforeUnload);
+    }
+    if (this.boundVisibilityChange) {
+      document.removeEventListener("visibilitychange", this.boundVisibilityChange);
+    }
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (conn && this.boundConnectionChange) {
+      conn.removeEventListener("change", this.boundConnectionChange);
     }
     if (this.canvas && this.canvas.parentNode) {
       this.canvas.parentNode.removeChild(this.canvas);

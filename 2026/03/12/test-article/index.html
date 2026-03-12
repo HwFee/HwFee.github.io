@@ -347,14 +347,14 @@
     </nav>
 
     
-      <div id="utterances-container"></div>
-      <script src="https://utteranc.es/client.js"
-        repo="HwFee/HwFee.github.io"
-        issue-term="2026/03/12/test-article/"
-        theme="github-light"
-        crossorigin="anonymous"
-        async>
-      </script>
+      <section class="comments-panel" data-utterances-comments data-repo="HwFee/HwFee.github.io" data-issue-term="pathname" data-page-path="2026/03/12/test-article/">
+        <div class="comments-panel-header">
+          <h2 class="comments-panel-title">评论</h2>
+          <button class="comments-retry-btn" type="button" hidden>重新加载评论</button>
+        </div>
+        <p class="comments-status" aria-live="polite">评论区准备中…</p>
+        <div id="utterances-container" class="comments-embed"></div>
+      </section>
     
 
   </article>
@@ -518,6 +518,13 @@
   
 <script src="/js/doc-sidebar.js"></script>
 
+
+  <!-- 评论加载器（全局，响应 PJAX） -->
+  
+    
+<script src="/js/comments-loader.js"></script>
+
+  
 
   <!-- 音乐播放器 -->
   

@@ -43,6 +43,7 @@
     this.saveTimer = null;
     this.saveInterval = 5000;
     this.isSlowNetwork = false;
+    this.isCompactViewport = false;
     this.init();
     instance = this;
   }
@@ -137,6 +138,59 @@
     } else {
       this.isSlowNetwork = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
     }
+
+    this.isCompactViewport = window.matchMedia ? window.matchMedia('(max-width: 768px)').matches : window.innerWidth <= 768;
+  };
+
+  MusicPlayer.prototype.shouldUseCompactMedia = function () {
+    return this.isSlowNetwork || this.isCompactViewport;
+  };
+
+  MusicPlayer.prototype.resolveMediaVariant = function (resource, variants) {
+    const compactCandidate = variants.mobile || variants.compact || variants.low;
+    const standardCandidate = variants.desktop || variants.standard || variants.default;
+
+    if (resource && typeof resource === 'object' && !Array.isArray(resource)) {
+      const objectCompact = resource.mobile || resource.compact || resource.low;
+      const objectStandard = resource.desktop || resource.standard || resource.default;
+      if (this.shouldUseCompactMedia()) {
+        return objectCompact || objectStandard || compactCandidate || standardCandidate || '';
+      }
+      return objectStandard || objectCompact || standardCandidate || compactCandidate || '';
+    }
+
+    if (typeof resource === 'string' && resource) {
+      return resource;
+    }
+
+    if (this.shouldUseCompactMedia()) {
+      return compactCandidate || standardCandidate || '';
+    }
+    return standardCandidate || compactCandidate || '';
+  };
+
+  MusicPlayer.prototype.getSongAudioUrl = function (song) {
+    if (!song) {
+      return '';
+    }
+
+    return this.resolveMediaVariant(song.audio, {
+      mobile: song.url_mobile || song.mobile_url,
+      desktop: song.url_desktop || song.desktop_url,
+      default: song.url
+    });
+  };
+
+  MusicPlayer.prototype.getSongCoverUrl = function (song) {
+    if (!song) {
+      return '';
+    }
+
+    return this.resolveMediaVariant(song.covers || song.cover_set, {
+      mobile: song.cover_mobile || song.mobile_cover,
+      desktop: song.cover_desktop || song.desktop_cover,
+      default: song.cover
+    });
   };
 
   MusicPlayer.prototype.createAudio = function () {
@@ -167,11 +221,44 @@
 
   MusicPlayer.prototype.setAudioSource = function (index) {
     const song = this.config.musicList[index];
-    if (!song || !song.url) {
+    const songUrl = this.getSongAudioUrl(song);
+    if (!song || !songUrl) {
       return;
     }
 
-    this.audio.src = this.getSafeMediaUrl(song.url);
+    this.audio.src = this.getSafeMediaUrl(songUrl);
+    this.audio.dataset.resolvedSrc = songUrl;
+  };
+
+  MusicPlayer.prototype.refreshResponsiveMedia = function () {
+    const song = this.getCurrentSong();
+    if (!song || !this.audio) {
+      return;
+    }
+
+    const nextSource = this.getSongAudioUrl(song);
+    const currentSource = this.audio.dataset.resolvedSrc || '';
+
+    this.updateAlbumCoverImage();
+
+    if (!nextSource || nextSource === currentSource) {
+      return;
+    }
+
+    const resumeTime = Number.isFinite(this.audio.currentTime) ? this.audio.currentTime : 0;
+    const wasPlaying = this.isPlaying && !this.audio.paused;
+
+    this.setAudioSource(this.currentIndex);
+    this.hasPrimedAudio = false;
+    this.queueSeek(resumeTime);
+    this.audio.load();
+
+    if (wasPlaying) {
+      this.play();
+      return;
+    }
+
+    this.updateSongMeta('已切换到适合当前设备的音源');
   };
 
   MusicPlayer.prototype.queueSeek = function (time) {
@@ -545,8 +632,17 @@
         if (!this.isPlaying && this.audio) {
           this.audio.preload = this.isSlowNetwork ? "metadata" : "auto";
         }
+        this.refreshResponsiveMedia();
       });
     }
+
+    window.addEventListener('resize', () => {
+      const previousCompactState = this.isCompactViewport;
+      this.detectNetwork();
+      if (previousCompactState !== this.isCompactViewport) {
+        this.refreshResponsiveMedia();
+      }
+    }, { passive: true });
 
     this.startAutoHideTimer();
   };
@@ -689,9 +785,10 @@
     }
 
     const song = this.config.musicList[this.currentIndex] || {};
-    if (song.cover) {
+    const coverUrl = this.getSongCoverUrl(song);
+    if (coverUrl) {
       // Encode URL to support spaces and non-ASCII characters in filenames.
-      const safeCoverUrl = encodeURI(song.cover).replace(/"/g, "%22");
+      const safeCoverUrl = encodeURI(coverUrl).replace(/"/g, "%22");
       coverInner.style.background = 'center / cover no-repeat url("' + safeCoverUrl + '")';
       return;
     }
