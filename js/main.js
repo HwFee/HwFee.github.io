@@ -4,10 +4,14 @@
 (function () {
   "use strict";
 
+  let pjaxInitialized = false;
+  let staticInitialized = false;
+
   // ===== 主题切换 =====
   function initThemeToggle() {
     const toggle = document.querySelector(".theme-toggle");
-    if (!toggle) return;
+    if (!toggle || toggle.dataset.bound === "true") return;
+    toggle.dataset.bound = "true";
 
     // 获取保存的主题或系统偏好
     const savedTheme = localStorage.getItem("theme");
@@ -55,7 +59,9 @@
     const menuToggle = document.querySelector(".menu-toggle");
     const mobileNav = document.querySelector(".mobile-nav");
 
-    if (!menuToggle || !mobileNav) return;
+    if (!menuToggle || !mobileNav || menuToggle.dataset.bound === "true") return;
+
+    menuToggle.dataset.bound = "true";
 
     menuToggle.addEventListener("click", function () {
       mobileNav.classList.toggle("active");
@@ -133,14 +139,21 @@
     if (images.length === 0) return;
 
     // 创建灯箱
-    const lightbox = document.createElement("div");
-    lightbox.className = "lightbox";
-    lightbox.innerHTML = '<img src="" alt="">';
-    document.body.appendChild(lightbox);
+    let lightbox = document.querySelector(".lightbox");
+    if (!lightbox) {
+      lightbox = document.createElement("div");
+      lightbox.className = "lightbox";
+      lightbox.innerHTML = '<img src="" alt="">';
+      document.body.appendChild(lightbox);
+    }
 
     const lightboxImg = lightbox.querySelector("img");
 
     images.forEach(function (img) {
+      if (img.dataset.lightboxBound === "true") {
+        return;
+      }
+      img.dataset.lightboxBound = "true";
       img.style.cursor = "zoom-in";
       img.addEventListener("click", function () {
         lightboxImg.src = img.src;
@@ -150,17 +163,20 @@
       });
     });
 
-    lightbox.addEventListener("click", function () {
-      lightbox.classList.remove("active");
-      document.body.style.overflow = "";
-    });
-
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape" && lightbox.classList.contains("active")) {
+    if (lightbox.dataset.bound !== "true") {
+      lightbox.dataset.bound = "true";
+      lightbox.addEventListener("click", function () {
         lightbox.classList.remove("active");
         document.body.style.overflow = "";
-      }
-    });
+      });
+
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && lightbox.classList.contains("active")) {
+          lightbox.classList.remove("active");
+          document.body.style.overflow = "";
+        }
+      });
+    }
   }
 
   // ===== 图片懒加载 =====
@@ -199,6 +215,10 @@
     const codeBlocks = document.querySelectorAll(".markdown-body pre");
 
     codeBlocks.forEach(function (pre) {
+      if (pre.parentElement && pre.parentElement.classList.contains("code-wrapper")) {
+        return;
+      }
+
       const wrapper = document.createElement("div");
       wrapper.className = "code-wrapper";
       wrapper.style.position = "relative";
@@ -278,14 +298,22 @@
 
   // ===== 回到顶部 =====
   function initBackToTop() {
-    const button = document.createElement("button");
-    button.className = "back-to-top";
-    button.innerHTML =
-      '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"></path></svg>';
-    button.title = "回到顶部";
-    button.style.cssText =
-      "position: fixed; bottom: 24px; right: 24px; z-index: 100; width: 48px; height: 48px; display: none; align-items: center; justify-content: center; background: var(--primary-color); color: white; border: none; border-radius: 50%; cursor: pointer; box-shadow: var(--shadow-lg); transition: all 0.3s;";
-    document.body.appendChild(button);
+    let button = document.querySelector(".back-to-top");
+    if (!button) {
+      button = document.createElement("button");
+      button.className = "back-to-top";
+      button.innerHTML =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"></path></svg>';
+      button.title = "回到顶部";
+      button.style.cssText =
+        "position: fixed; bottom: 24px; right: 24px; z-index: 100; width: 48px; height: 48px; display: none; align-items: center; justify-content: center; background: var(--primary-color); color: white; border: none; border-radius: 50%; cursor: pointer; box-shadow: var(--shadow-lg); transition: all 0.3s;";
+      document.body.appendChild(button);
+    }
+
+    if (button.dataset.bound === "true") {
+      return;
+    }
+    button.dataset.bound = "true";
 
     window.addEventListener(
       "scroll",
@@ -313,6 +341,154 @@
         link.setAttribute("target", "_blank");
         link.setAttribute("rel", "noopener noreferrer");
       }
+    });
+  }
+
+  function normalizePath(pathname) {
+    if (!pathname) {
+      return "/";
+    }
+    return pathname.endsWith("/") ? pathname : pathname + "/";
+  }
+
+  function updateActiveNavLinks(url) {
+    const currentPath = normalizePath(url.pathname);
+    document.querySelectorAll(".nav-link, .mobile-nav-link").forEach(function (link) {
+      const linkUrl = new URL(link.href, window.location.origin);
+      const isActive = normalizePath(linkUrl.pathname) === currentPath;
+      link.classList.toggle("active", isActive);
+    });
+  }
+
+  function closeTransientUi() {
+    const mobileNav = document.querySelector(".mobile-nav");
+    const menuToggle = document.querySelector(".menu-toggle");
+    if (mobileNav) {
+      mobileNav.classList.remove("active");
+    }
+    if (menuToggle) {
+      menuToggle.classList.remove("active");
+    }
+
+    const searchModal = document.getElementById("search-modal");
+    if (searchModal) {
+      searchModal.classList.remove("active");
+    }
+    document.body.style.overflow = "";
+  }
+
+  function shouldHandlePjaxLink(link) {
+    if (!link || !link.href) {
+      return false;
+    }
+
+    if (link.target && link.target !== "_self") {
+      return false;
+    }
+
+    if (link.hasAttribute("download") || link.getAttribute("rel") === "external") {
+      return false;
+    }
+
+    const url = new URL(link.href, window.location.href);
+    if (url.origin !== window.location.origin) {
+      return false;
+    }
+
+    if (url.pathname === window.location.pathname && url.search === window.location.search && url.hash) {
+      return false;
+    }
+
+    return true;
+  }
+
+  function updatePageContent(doc, url, options) {
+    const nextContainer = doc.querySelector("main.main-content .container");
+    const currentContainer = document.querySelector("main.main-content .container");
+
+    if (!nextContainer || !currentContainer) {
+      window.location.href = url.href;
+      return;
+    }
+
+    currentContainer.innerHTML = nextContainer.innerHTML;
+
+    const title = doc.querySelector("title");
+    if (title) {
+      document.title = title.textContent;
+    }
+
+    if (!options.replace) {
+      window.history.pushState({ pjax: true }, "", url.href);
+    }
+
+    updateActiveNavLinks(url);
+    closeTransientUi();
+    initDynamicFeatures();
+    document.dispatchEvent(new CustomEvent("starter:page-ready", {
+      detail: { url: url.href }
+    }));
+
+    if (url.hash) {
+      const target = document.querySelector(url.hash);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+    }
+
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
+
+  function navigateWithPjax(url, options) {
+    fetch(url.href, {
+      headers: {
+        "X-Requested-With": "starter-pjax"
+      }
+    })
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error("Failed to load page");
+        }
+        return response.text();
+      })
+      .then(function (html) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, "text/html");
+        updatePageContent(doc, url, options || {});
+      })
+      .catch(function () {
+        window.location.href = url.href;
+      });
+  }
+
+  function initPjaxNavigation() {
+    if (pjaxInitialized) {
+      return;
+    }
+
+    pjaxInitialized = true;
+
+    document.addEventListener("click", function (event) {
+      if (event.defaultPrevented || event.button !== 0) {
+        return;
+      }
+
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+        return;
+      }
+
+      const link = event.target.closest("a");
+      if (!shouldHandlePjaxLink(link)) {
+        return;
+      }
+
+      event.preventDefault();
+      navigateWithPjax(new URL(link.href, window.location.href), { replace: false });
+    });
+
+    window.addEventListener("popstate", function () {
+      navigateWithPjax(new URL(window.location.href), { replace: true });
     });
   }
 
@@ -345,16 +521,28 @@
   }
 
   // ===== 初始化 =====
-  function init() {
-    initThemeToggle();
-    initMobileMenu();
+  function initDynamicFeatures() {
     initTocHighlight();
     initLightbox();
     initLazyLoad();
     initCodeCopy();
     initSmoothScroll();
-    initBackToTop();
     initExternalLinks();
+  }
+
+  function init() {
+    if (!staticInitialized) {
+      initThemeToggle();
+      initMobileMenu();
+      initBackToTop();
+      initPjaxNavigation();
+      staticInitialized = true;
+    }
+
+    initDynamicFeatures();
+    document.dispatchEvent(new CustomEvent("starter:page-ready", {
+      detail: { url: window.location.href }
+    }));
   }
 
   // DOM 加载完成后初始化

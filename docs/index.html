@@ -477,12 +477,10 @@
 <script src="/js/search.js"></script>
 
   
-  
-  
-    
-<script src="/js/doc-sidebar.js"></script>
 
   
+<script src="/js/doc-sidebar.js"></script>
+
 
   <!-- 音乐播放器 -->
   
@@ -492,8 +490,8 @@
     <script>
       document.addEventListener('DOMContentLoaded', function() {
         const musicPlayer = new MusicPlayer({
-          autoPlay: false,
-          musicList: [{"name":"示例音乐1","url":""},{"name":"示例音乐2","url":""},{"name":"示例音乐3","url":""}]
+          autoPlay: true,
+          musicList: [{"name":"我怀念的","url":"/assets/music/audio/孙燕姿 - 我怀念的.mp3","cover":"/assets/music/covers/SnowShot_2026-03-12_19-33-23.png"}]
         });
         window.musicPlayer = musicPlayer;
       });

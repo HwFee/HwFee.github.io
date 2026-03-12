@@ -29,6 +29,8 @@
     this.isAnimating = false;
     this.animationTimeout = null;
     this.autoHideTimer = null;
+    this.autoPlayUnlockHandler = null;
+    this.hasAutoPlayUnlockListeners = false;
     this.lastActivityTime = Date.now();
     this.lastSavedSecond = -1;
     this.init();
@@ -39,8 +41,11 @@
     this.createContainer();
     this.createAudio();
     this.bindEvents();
-    this.restoreState();
+    const hasSavedState = this.restoreState();
     this.updateSongInfo();
+    if (this.config.autoPlay && !hasSavedState && this.config.musicList.length > 0) {
+      this.tryAutoPlay();
+    }
   };
 
   MusicPlayer.prototype.createContainer = function () {
@@ -136,9 +141,11 @@
   };
 
   MusicPlayer.prototype.restoreState = function () {
+    let hasSavedState = false;
     if (window.appState) {
       const savedState = window.appState.getState('musicPlayer');
       if (savedState) {
+        hasSavedState = true;
         if (savedState.currentIndex !== undefined) {
           this.currentIndex = savedState.currentIndex;
         }
@@ -172,6 +179,50 @@
         }
       }
     }
+    return hasSavedState;
+  };
+
+  MusicPlayer.prototype.tryAutoPlay = function () {
+    const playPromise = this.audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        this.updateSongMeta("等待交互后自动播放");
+        this.bindAutoPlayUnlock();
+      });
+      return;
+    }
+
+    this.play();
+  };
+
+  MusicPlayer.prototype.bindAutoPlayUnlock = function () {
+    if (this.hasAutoPlayUnlockListeners) {
+      return;
+    }
+
+    this.autoPlayUnlockHandler = () => {
+      this.removeAutoPlayUnlock();
+      if (!this.isPlaying) {
+        this.play();
+      }
+    };
+
+    ["click", "touchstart", "keydown"].forEach((eventName) => {
+      document.addEventListener(eventName, this.autoPlayUnlockHandler, true);
+    });
+    this.hasAutoPlayUnlockListeners = true;
+  };
+
+  MusicPlayer.prototype.removeAutoPlayUnlock = function () {
+    if (!this.hasAutoPlayUnlockListeners || !this.autoPlayUnlockHandler) {
+      return;
+    }
+
+    ["click", "touchstart", "keydown"].forEach((eventName) => {
+      document.removeEventListener(eventName, this.autoPlayUnlockHandler, true);
+    });
+    this.autoPlayUnlockHandler = null;
+    this.hasAutoPlayUnlockListeners = false;
   };
 
   MusicPlayer.prototype.debounce = function (func, wait) {
@@ -258,6 +309,7 @@
     });
 
     this.audio.addEventListener("play", () => {
+      this.removeAutoPlayUnlock();
       this.isPlaying = true;
       this.updateButtonState();
       this.updateAlbumCoverState();
@@ -413,7 +465,30 @@
     } else {
       songNameEl.textContent = "未选择音乐";
     }
+    this.updateAlbumCoverImage();
     this.updateSongMeta();
+  };
+
+  MusicPlayer.prototype.updateAlbumCoverImage = function () {
+    const coverInner = this.container.querySelector(".music-album-cover-inner");
+    if (!coverInner) {
+      return;
+    }
+
+    if (!this.config.musicList.length) {
+      coverInner.style.background = "";
+      return;
+    }
+
+    const song = this.config.musicList[this.currentIndex] || {};
+    if (song.cover) {
+      // Encode URL to support spaces and non-ASCII characters in filenames.
+      const safeCoverUrl = encodeURI(song.cover).replace(/"/g, "%22");
+      coverInner.style.background = 'center / cover no-repeat url("' + safeCoverUrl + '")';
+      return;
+    }
+
+    coverInner.style.background = "";
   };
 
   MusicPlayer.prototype.truncateText = function (text, maxLength) {

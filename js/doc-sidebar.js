@@ -11,6 +11,11 @@
 
     // 点击箭头或文件夹名展开/收起
     tree.querySelectorAll(".tree-row").forEach(function (row) {
+      if (row.dataset.bound === "true") {
+        return;
+      }
+      row.dataset.bound = "true";
+
       const arrow = row.querySelector(".tree-arrow");
       const folderLabel = row.querySelector(".tree-folder");
       const children = row.nextElementSibling;
@@ -49,9 +54,17 @@
     if (!sidebar || !toggleBtn) return;
 
     // 创建遮罩
-    const overlay = document.createElement("div");
-    overlay.className = "doc-sidebar-overlay";
-    document.body.appendChild(overlay);
+    let overlay = document.querySelector(".doc-sidebar-overlay");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.className = "doc-sidebar-overlay";
+      document.body.appendChild(overlay);
+    }
+
+    if (toggleBtn.dataset.bound === "true") {
+      return;
+    }
+    toggleBtn.dataset.bound = "true";
 
     toggleBtn.addEventListener("click", function () {
       sidebar.classList.toggle("active");
@@ -61,14 +74,24 @@
         : "";
     });
 
-    overlay.addEventListener("click", function () {
-      sidebar.classList.remove("active");
-      overlay.classList.remove("active");
-      document.body.style.overflow = "";
-    });
+    if (overlay.dataset.bound !== "true") {
+      overlay.dataset.bound = "true";
+      overlay.addEventListener("click", function () {
+        const activeSidebar = document.querySelector(".doc-sidebar.active");
+        if (activeSidebar) {
+          activeSidebar.classList.remove("active");
+        }
+        overlay.classList.remove("active");
+        document.body.style.overflow = "";
+      });
+    }
 
     // 点击链接后关闭侧边栏
     sidebar.querySelectorAll("a").forEach(function (link) {
+      if (link.dataset.bound === "true") {
+        return;
+      }
+      link.dataset.bound = "true";
       link.addEventListener("click", function () {
         if (window.innerWidth <= 768) {
           sidebar.classList.remove("active");
@@ -91,4 +114,6 @@
   } else {
     init();
   }
+
+  document.addEventListener("starter:page-ready", init);
 })();
