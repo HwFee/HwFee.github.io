@@ -38,6 +38,9 @@
 <link rel="stylesheet" href="/css/style.css">
 
 
+<link rel="stylesheet" href="/css/modules.css">
+
+
 <!-- RSS -->
 
 
@@ -218,7 +221,7 @@
     <header class="categories-header">
       <h1 class="categories-title">分类</h1>
       
-      <p class="categories-count">共 2 个分类</p>
+      <p class="categories-count">共 1 个分类</p>
       
     </header>
 
@@ -233,23 +236,6 @@
           </div>
           <div class="category-info">
             <span class="category-name">技术</span>
-            <span class="category-count">2 篇文章</span>
-          </div>
-          <div class="category-arrow">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
-          </div>
-        </a>
-      
-        <a href="/categories/%E7%94%9F%E6%B4%BB/" class="category-item">
-          <div class="category-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-            </svg>
-          </div>
-          <div class="category-info">
-            <span class="category-name">生活</span>
             <span class="category-count">1 篇文章</span>
           </div>
           <div class="category-arrow">
@@ -391,6 +377,11 @@
     };
   </script>
 
+  <!-- 全局状态管理 -->
+  
+<script src="/js/app-state.js"></script>
+
+
   <!-- 主脚本 -->
   
 <script src="/js/main.js"></script>
@@ -402,6 +393,46 @@
 
   
   
+  
+
+  <!-- 音乐播放器 -->
+  
+    
+<script src="/js/music-player.js"></script>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const musicPlayer = new MusicPlayer({
+          autoPlay: false,
+          musicList: [{"name":"示例音乐1","url":""},{"name":"示例音乐2","url":""},{"name":"示例音乐3","url":""}]
+        });
+        window.musicPlayer = musicPlayer;
+      });
+    </script>
+  
+
+  <!-- 粒子动画效果 -->
+  
+    
+<script src="/js/snow-effect.js"></script>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const particleEffect = new SnowEffect({
+          type: 'petal',
+          density: 25,
+          speed: 1,
+          size: {
+            min: 8,
+            max: 18
+          }
+        });
+        if (!particleEffect.isRunning) {
+          particleEffect.start();
+        }
+        window.particleEffect = particleEffect;
+      });
+    </script>
   
 </body>
 </html>

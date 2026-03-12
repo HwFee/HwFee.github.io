@@ -38,6 +38,9 @@
 <link rel="stylesheet" href="/css/style.css">
 
 
+<link rel="stylesheet" href="/css/modules.css">
+
+
 <!-- RSS -->
 
 
@@ -222,7 +225,7 @@
         
       </h1>
       
-      <p class="archive-count">共 3 篇文章</p>
+      <p class="archive-count">共 1 篇文章</p>
       
     </header>
 
@@ -238,21 +241,7 @@
         
         <li class="archive-item">
           <span class="archive-date">03-12</span>
-          <a href="/2026/03/12/comment-test-post/" class="archive-link">第三篇文章 - 测试评论</a>
-        </li>
-      
-        
-        
-        <li class="archive-item">
-          <span class="archive-date">03-12</span>
-          <a href="/2026/03/12/second-post/" class="archive-link">第二篇文章</a>
-        </li>
-      
-        
-        
-        <li class="archive-item">
-          <span class="archive-date">03-12</span>
-          <a href="/2026/03/12/first-post/" class="archive-link">第一篇文章</a>
+          <a href="/2026/03/12/test-article/" class="archive-link">测试文章</a>
         </li>
       
       
@@ -395,6 +384,11 @@
     };
   </script>
 
+  <!-- 全局状态管理 -->
+  
+<script src="/js/app-state.js"></script>
+
+
   <!-- 主脚本 -->
   
 <script src="/js/main.js"></script>
@@ -406,6 +400,46 @@
 
   
   
+  
+
+  <!-- 音乐播放器 -->
+  
+    
+<script src="/js/music-player.js"></script>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const musicPlayer = new MusicPlayer({
+          autoPlay: false,
+          musicList: [{"name":"示例音乐1","url":""},{"name":"示例音乐2","url":""},{"name":"示例音乐3","url":""}]
+        });
+        window.musicPlayer = musicPlayer;
+      });
+    </script>
+  
+
+  <!-- 粒子动画效果 -->
+  
+    
+<script src="/js/snow-effect.js"></script>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const particleEffect = new SnowEffect({
+          type: 'petal',
+          density: 25,
+          speed: 1,
+          size: {
+            min: 8,
+            max: 18
+          }
+        });
+        if (!particleEffect.isRunning) {
+          particleEffect.start();
+        }
+        window.particleEffect = particleEffect;
+      });
+    </script>
   
 </body>
 </html>

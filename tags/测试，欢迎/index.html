@@ -17,7 +17,7 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="HwFee&#39;s World">
 <meta property="og:description" content="">
-<meta property="og:url" content="http://hwfee.me/categories/%E7%94%9F%E6%B4%BB/index.html">
+<meta property="og:url" content="http://hwfee.me/tags/%E6%B5%8B%E8%AF%95%EF%BC%8C%E6%AC%A2%E8%BF%8E/index.html">
 <meta property="og:site_name" content="HwFee&#39;s World">
 
 
@@ -38,11 +38,14 @@
 <link rel="stylesheet" href="/css/style.css">
 
 
+<link rel="stylesheet" href="/css/modules.css">
+
+
 <!-- RSS -->
 
 
 <!-- 规范链接 -->
-<link rel="canonical" href="http://hwfee.me/categories/%E7%94%9F%E6%B4%BB/index.html">
+<link rel="canonical" href="http://hwfee.me/tags/%E6%B5%8B%E8%AF%95%EF%BC%8C%E6%AC%A2%E8%BF%8E/index.html">
 
 <!-- 主题色 -->
 <meta name="theme-color" content="#2563eb" media="(prefers-color-scheme: light)">
@@ -88,14 +91,14 @@
         
           <li class="nav-item">
             <a href="/tags" 
-               class="nav-link ">
+               class="nav-link active">
               标签
             </a>
           </li>
         
           <li class="nav-item">
             <a href="/categories" 
-               class="nav-link active">
+               class="nav-link ">
               分类
             </a>
           </li>
@@ -180,14 +183,14 @@
       
         <li class="mobile-nav-item">
           <a href="/tags" 
-             class="mobile-nav-link ">
+             class="mobile-nav-link active">
             标签
           </a>
         </li>
       
         <li class="mobile-nav-item">
           <a href="/categories" 
-             class="mobile-nav-link active">
+             class="mobile-nav-link ">
             分类
           </a>
         </li>
@@ -217,40 +220,29 @@
   <div class="archive-wrapper">
     <header class="archive-header">
       <h1 class="archive-title">
-        
-          分类: 生活
-        
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"></path>
+          <path d="M7 7h.01"></path>
+        </svg>
+        测试，欢迎
       </h1>
-      
       <p class="archive-count">共 1 篇文章</p>
-      
     </header>
 
-    
     <div class="archive-content">
-      
+      <ul class="archive-list">
         
-          
-          
-          <h2 class="archive-year">2026</h2>
-          <ul class="archive-list">
+          <li class="archive-item">
+            <span class="archive-date">2026-03-12</span>
+            <a href="/2026/03/12/test-article/" class="archive-link">测试文章</a>
+          </li>
         
-        
-        <li class="archive-item">
-          <span class="archive-date">03-12</span>
-          <a href="/2026/03/12/second-post/" class="archive-link">第二篇文章</a>
-        </li>
-      
-      
-      
-        </ul>
-      
+      </ul>
     </div>
 
     <!-- 分页 -->
     
 
-    
   </div>
 </div>
 
@@ -381,6 +373,11 @@
     };
   </script>
 
+  <!-- 全局状态管理 -->
+  
+<script src="/js/app-state.js"></script>
+
+
   <!-- 主脚本 -->
   
 <script src="/js/main.js"></script>
@@ -392,6 +389,46 @@
 
   
   
+  
+
+  <!-- 音乐播放器 -->
+  
+    
+<script src="/js/music-player.js"></script>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const musicPlayer = new MusicPlayer({
+          autoPlay: false,
+          musicList: [{"name":"示例音乐1","url":""},{"name":"示例音乐2","url":""},{"name":"示例音乐3","url":""}]
+        });
+        window.musicPlayer = musicPlayer;
+      });
+    </script>
+  
+
+  <!-- 粒子动画效果 -->
+  
+    
+<script src="/js/snow-effect.js"></script>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const particleEffect = new SnowEffect({
+          type: 'petal',
+          density: 25,
+          speed: 1,
+          size: {
+            min: 8,
+            max: 18
+          }
+        });
+        if (!particleEffect.isRunning) {
+          particleEffect.start();
+        }
+        window.particleEffect = particleEffect;
+      });
+    </script>
   
 </body>
 </html>

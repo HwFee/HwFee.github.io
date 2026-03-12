@@ -38,6 +38,9 @@
 <link rel="stylesheet" href="/css/style.css">
 
 
+<link rel="stylesheet" href="/css/modules.css">
+
+
 <!-- RSS -->
 
 
@@ -217,37 +220,21 @@
   <div class="tags-wrapper">
     <header class="tags-header">
       <h1 class="tags-title">标签</h1>
-      <p class="tags-count">共 5 个标签</p>
+      
+      <p class="tags-count">共 1 个标签</p>
+      
     </header>
 
+    
     <div class="tags-cloud">
       
-        <a href="/tags/%E6%B5%8B%E8%AF%95/" class="tag-cloud-item" data-count="2">
-          测试
-          <span class="tag-count">(2)</span>
-        </a>
-      
-        <a href="/tags/%E8%AF%84%E8%AE%BA/" class="tag-cloud-item" data-count="1">
-          评论
-          <span class="tag-count">(1)</span>
-        </a>
-      
-        <a href="/tags/%E7%94%9F%E6%B4%BB/" class="tag-cloud-item" data-count="1">
-          生活
-          <span class="tag-count">(1)</span>
-        </a>
-      
-        <a href="/tags/%E6%97%A5%E8%AE%B0/" class="tag-cloud-item" data-count="1">
-          日记
-          <span class="tag-count">(1)</span>
-        </a>
-      
-        <a href="/tags/%E6%AC%A2%E8%BF%8E/" class="tag-cloud-item" data-count="1">
-          欢迎
+        <a href="/tags/%E6%B5%8B%E8%AF%95%EF%BC%8C%E6%AC%A2%E8%BF%8E/" class="tag-cloud-item" data-count="1">
+          测试，欢迎
           <span class="tag-count">(1)</span>
         </a>
       
     </div>
+    
   </div>
 </div>
 
@@ -378,6 +365,11 @@
     };
   </script>
 
+  <!-- 全局状态管理 -->
+  
+<script src="/js/app-state.js"></script>
+
+
   <!-- 主脚本 -->
   
 <script src="/js/main.js"></script>
@@ -389,6 +381,46 @@
 
   
   
+  
+
+  <!-- 音乐播放器 -->
+  
+    
+<script src="/js/music-player.js"></script>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const musicPlayer = new MusicPlayer({
+          autoPlay: false,
+          musicList: [{"name":"示例音乐1","url":""},{"name":"示例音乐2","url":""},{"name":"示例音乐3","url":""}]
+        });
+        window.musicPlayer = musicPlayer;
+      });
+    </script>
+  
+
+  <!-- 粒子动画效果 -->
+  
+    
+<script src="/js/snow-effect.js"></script>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const particleEffect = new SnowEffect({
+          type: 'petal',
+          density: 25,
+          speed: 1,
+          size: {
+            min: 8,
+            max: 18
+          }
+        });
+        if (!particleEffect.isRunning) {
+          particleEffect.start();
+        }
+        window.particleEffect = particleEffect;
+      });
+    </script>
   
 </body>
 </html>
