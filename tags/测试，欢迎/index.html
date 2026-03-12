@@ -33,9 +33,9 @@
 <!-- 字体 -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-<!-- 首首音乐预加载 -->
+<!-- 首首音乐预获取（低优先级，不阻塞页面加载） -->
 
-<link rel="preload" as="audio" href="/assets/music/audio/%25E5%25AD%2599%25E7%2587%2595%25E5%25A7%25BF%2520-%2520%25E6%2588%2591%25E6%2580%2580%25E5%25BF%25B5%25E7%259A%2584.mp3">
+<link rel="prefetch" as="audio" href="/assets/music/audio/%25E5%25AD%2599%25E7%2587%2595%25E5%25A7%25BF%2520-%2520%25E6%2588%2591%25E6%2580%2580%25E5%25BF%25B5%25E7%259A%2584.mp3" crossorigin>
 
 
 <!-- 样式表 -->
@@ -422,12 +422,12 @@
     <script>
       document.addEventListener('DOMContentLoaded', function() {
         const particleEffect = new SnowEffect({
-          type: 'petal',
-          density: 25,
-          speed: 1,
+          type: 'sakura',
+          density: 24,
+          speed: 0.16,
           size: {
-            min: 8,
-            max: 18
+            min: 12,
+            max: 26
           }
         });
         if (!particleEffect.isRunning) {

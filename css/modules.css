@@ -157,6 +157,8 @@
     radial-gradient(circle at 30% 28%, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.06) 32%),
     linear-gradient(150deg, rgba(191, 219, 254, 0.96) 0%, rgba(59, 130, 246, 0.92) 100%);
   position: relative;
+  animation: rotate-album 10s linear infinite;
+  animation-play-state: paused;
 }
 
 .music-album-cover-inner::before {
@@ -181,7 +183,7 @@
 }
 
 .music-album-cover-inner.rotating {
-  animation: rotate-album 10s linear infinite;
+  animation-play-state: running;
 }
 
 @keyframes rotate-album {
@@ -236,7 +238,22 @@
 }
 
 .music-progress-track {
-  display: none;
+  grid-column: 1 / -1;
+  position: relative;
+  height: 2px;
+  border-radius: 1px;
+  background: rgba(148, 163, 184, 0.15);
+  overflow: hidden;
+}
+
+.music-buffer-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(0);
+  border-radius: inherit;
+  background: rgba(147, 197, 253, 0.3);
+  transition: transform 0.5s linear;
 }
 
 .music-progress-fill {

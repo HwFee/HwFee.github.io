@@ -2,302 +2,416 @@
   "use strict";
 
   let instance = null;
-  const STORAGE_KEY = 'snow_effect_state';
+  const STORAGE_KEY = "snow_effect_state";
 
   function SnowEffect(config) {
     if (instance) {
       return instance;
     }
-    
+
     this.config = Object.assign({
-      type: "petal",
-      density: 20,
-      speed: 2,
-      size: { min: 12, max: 28 },
+      type: "sakura",
+      density: 26,
+      speed: 0.16,
+      size: { min: 12, max: 26 },
       colors: {
-        light: ["#ff6b9d", "#ff8fab", "#ffc3d0", "#ffd6e0", "#ffebf0"],
-        dark: ["#e0a4ff", "#c084fc", "#a855f7", "#9333ea", "#7c3aed"]
+        light: ["#f8c7d8", "#f6b8cf", "#fbd9e7", "#fde7ef", "#ffd4df"],
+        dark: ["#f2b5d4", "#f59ac2", "#f7c6dd", "#f0a6ca", "#ffd6e8"]
       },
-      zIndex: 1000
-    }, config);
+      zIndex: 1000,
+      maxFps: 45
+    }, config || {});
+
     this.canvas = null;
     this.ctx = null;
     this.particles = [];
     this.animationId = null;
     this.isRunning = false;
     this.isDarkMode = document.documentElement.dataset.theme === "dark";
+    this.prefersReducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    this.viewportScale = 1;
+    this.lastFrameTime = 0;
+    this.boundThemeObserver = null;
+    this.boundResize = null;
+    this.boundBeforeUnload = null;
     this.init();
     instance = this;
   }
 
   SnowEffect.prototype.init = function () {
     this.createCanvas();
+    this.resize();
     this.bindEvents();
     this.restoreState();
+    this.ensureParticles();
+    if (this.isRunning && !this.prefersReducedMotion) {
+      this.lastFrameTime = 0;
+      this.animationId = requestAnimationFrame((timestamp) => this.animate(timestamp));
+    }
   };
 
   SnowEffect.prototype.createCanvas = function () {
-    const existingCanvas = document.querySelector('.particle-canvas');
+    const existingCanvas = document.querySelector(".particle-canvas");
     if (existingCanvas) {
       this.canvas = existingCanvas;
-      this.ctx = this.canvas.getContext('2d');
+      this.ctx = existingCanvas.getContext("2d");
       return;
     }
+
     this.canvas = document.createElement("canvas");
     this.canvas.className = "particle-canvas";
-    this.canvas.style.cssText = 
-      "position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: " + this.config.zIndex + ";";
+    this.canvas.setAttribute("aria-hidden", "true");
+    this.canvas.style.cssText = [
+      "position: fixed",
+      "inset: 0",
+      "width: 100%",
+      "height: 100%",
+      "pointer-events: none",
+      "z-index: " + this.config.zIndex
+    ].join("; ");
     document.body.appendChild(this.canvas);
     this.ctx = this.canvas.getContext("2d");
-    this.resize();
   };
 
   SnowEffect.prototype.resize = function () {
-    this.canvas.width = window.innerWidth;
-    this.canvas.height = window.innerHeight;
+    if (!this.canvas || !this.ctx) {
+      return;
+    }
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    this.canvas.width = Math.floor(width * dpr);
+    this.canvas.height = Math.floor(height * dpr);
+    this.canvas.style.width = width + "px";
+    this.canvas.style.height = height + "px";
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    if (width <= 640) {
+      this.viewportScale = 0.58;
+    } else if (width <= 1024) {
+      this.viewportScale = 0.78;
+    } else {
+      this.viewportScale = 1;
+    }
   };
 
-  SnowEffect.prototype.createParticles = function () {
-    this.particles = [];
-    for (let i = 0; i < this.config.density; i++) {
-      this.particles.push(this.createParticle());
+  SnowEffect.prototype.getParticleCount = function () {
+    if (this.prefersReducedMotion) {
+      return 0;
     }
+    return Math.max(6, Math.round(this.config.density * this.viewportScale));
+  };
+
+  SnowEffect.prototype.normalizeType = function (type) {
+    if (!type || type === "petal") {
+      return "sakura";
+    }
+    return type;
+  };
+
+  SnowEffect.prototype.getPalette = function () {
+    return this.isDarkMode ? this.config.colors.dark : this.config.colors.light;
+  };
+
+  SnowEffect.prototype.ensureParticles = function () {
+    const targetCount = this.getParticleCount();
+
+    if (this.particles.length < targetCount) {
+      while (this.particles.length < targetCount) {
+        this.particles.push(this.createParticle(true));
+      }
+      return;
+    }
+
+    if (this.particles.length > targetCount) {
+      this.particles = this.particles.slice(0, targetCount);
+    }
+  };
+
+  SnowEffect.prototype.createParticle = function (spawnAboveViewport) {
+    const palette = this.getPalette();
+    const layer = Math.random();
+    const normalizedType = this.normalizeType(this.config.type);
+    const size = this.config.size.min + Math.random() * (this.config.size.max - this.config.size.min);
+    const depth = 0.55 + layer * 0.95;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    return {
+      x: Math.random() * width,
+      y: spawnAboveViewport ? -Math.random() * height - size * 2 : Math.random() * height,
+      size: size * (0.8 + layer * 0.5),
+      baseSpeed: (0.05 + Math.random() * 0.09) * this.config.speed * depth,
+      drift: (Math.random() - 0.5) * (0.008 + layer * 0.025),
+      rotation: Math.random() * Math.PI * 2,
+      rotationSpeed: (Math.random() - 0.5) * (0.001 + layer * 0.004),
+      opacity: 0.58 + layer * 0.28,
+      blur: layer < 0.18 ? 1.4 : layer < 0.48 ? 0.55 : 0,
+      squish: 0.72 + Math.random() * 0.28,
+      sway: 0.94 + Math.random() * 0.2,
+      layer: layer,
+      type: normalizedType,
+      color: palette[Math.floor(Math.random() * palette.length)],
+      glow: 6 + layer * 12
+    };
+  };
+
+  SnowEffect.prototype.recycleParticle = function (particle) {
+    const next = this.createParticle(true);
+    Object.keys(next).forEach((key) => {
+      particle[key] = next[key];
+    });
+    particle.x = Math.random() * window.innerWidth;
   };
 
   SnowEffect.prototype.saveState = function () {
     try {
-      const state = {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
         isRunning: this.isRunning,
-        particles: this.particles.map(p => ({
-          x: p.x,
-          y: p.y,
-          size: p.size,
-          speed: p.speed,
-          rotation: p.rotation,
-          rotationSpeed: p.rotationSpeed,
-          swing: p.swing,
-          swingSpeed: p.swingSpeed,
-          swingAmplitude: p.swingAmplitude,
-          color: p.color,
-          type: p.type,
-          opacity: p.opacity,
-          layer: p.layer
-        }))
-      };
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch (e) {
-      console.warn('Failed to save particle state:', e);
+        type: this.normalizeType(this.config.type)
+      }));
+    } catch (error) {
+      console.warn("Failed to save particle state:", error);
     }
   };
 
   SnowEffect.prototype.restoreState = function () {
     try {
       const saved = sessionStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const state = JSON.parse(saved);
-        this.isRunning = state.isRunning || false;
-        if (state.particles && state.particles.length > 0) {
-          this.particles = state.particles;
-        } else {
-          this.createParticles();
-        }
-      } else {
-        this.createParticles();
+      if (!saved) {
+        return;
       }
-    } catch (e) {
-      console.warn('Failed to restore particle state:', e);
-      this.createParticles();
+      const state = JSON.parse(saved);
+      this.isRunning = !!state.isRunning;
+      if (state.type) {
+        this.config.type = state.type;
+      }
+    } catch (error) {
+      console.warn("Failed to restore particle state:", error);
     }
-    if (this.isRunning) {
-      this.animate();
-    }
-  };
-
-  SnowEffect.prototype.createParticle = function () {
-    const colors = this.isDarkMode ? this.config.colors.dark : this.config.colors.light;
-    return {
-      x: Math.random() * this.canvas.width,
-      y: Math.random() * -this.canvas.height - 100,
-      size: this.config.size.min + Math.random() * (this.config.size.max - this.config.size.min),
-      speed: this.config.speed * (0.5 + Math.random() * 1),
-      rotation: Math.random() * Math.PI * 2,
-      rotationSpeed: (Math.random() - 0.5) * 0.05,
-      swing: Math.random() * Math.PI * 2,
-      swingSpeed: 0.01 + Math.random() * 0.02,
-      swingAmplitude: 30 + Math.random() * 40,
-      color: colors[Math.floor(Math.random() * colors.length)],
-      type: this.config.type,
-      opacity: 0.6 + Math.random() * 0.4,
-      layer: Math.random()
-    };
   };
 
   SnowEffect.prototype.bindEvents = function () {
-    window.addEventListener("resize", () => {
+    this.boundResize = () => {
       this.resize();
-    });
+      this.ensureParticles();
+    };
+    window.addEventListener("resize", this.boundResize, { passive: true });
 
-    const observer = new MutationObserver(() => {
+    this.boundThemeObserver = new MutationObserver(() => {
       this.isDarkMode = document.documentElement.dataset.theme === "dark";
+      const palette = this.getPalette();
+      this.particles.forEach((particle) => {
+        particle.color = palette[Math.floor(Math.random() * palette.length)];
+      });
     });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    this.boundThemeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"]
+    });
 
-    window.addEventListener('beforeunload', () => {
+    this.boundBeforeUnload = () => {
       this.saveState();
-    });
+    };
+    window.addEventListener("beforeunload", this.boundBeforeUnload);
   };
 
-  SnowEffect.prototype.drawPetal = function (particle) {
+  SnowEffect.prototype.drawSakura = function (particle) {
     const ctx = this.ctx;
+    const size = particle.size;
+
     ctx.save();
     ctx.translate(particle.x, particle.y);
     ctx.rotate(particle.rotation);
+    ctx.scale(1, particle.squish);
     ctx.globalAlpha = particle.opacity;
-    
-    const size = particle.size;
-    ctx.fillStyle = particle.color;
+    ctx.filter = particle.blur ? "blur(" + particle.blur + "px)" : "none";
+    ctx.shadowColor = this.mixColor(particle.color, "#ffffff", 0.35);
+    ctx.shadowBlur = particle.glow;
+
     ctx.beginPath();
-    
-    for (let i = 0; i < 5; i++) {
-      const angle = (i * 72 - 90) * Math.PI / 180;
-      const petalLength = size * 0.8;
-      const petalWidth = size * 0.4;
-      
-      ctx.save();
-      ctx.rotate(angle);
-      ctx.translate(0, -size * 0.2);
-      ctx.beginPath();
-      ctx.ellipse(0, -petalLength / 2, petalWidth, petalLength / 2, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
-    
-    ctx.beginPath();
-    ctx.arc(0, 0, size * 0.15, 0, Math.PI * 2);
-    ctx.fillStyle = "#ffeb3b";
+    ctx.moveTo(0, -size * 0.56);
+    ctx.bezierCurveTo(size * 0.4, -size * 0.68, size * 0.72, -size * 0.06, size * 0.18, size * 0.32);
+    ctx.bezierCurveTo(size * 0.04, size * 0.44, size * 0.05, size * 0.62, 0, size * 0.74);
+    ctx.bezierCurveTo(-size * 0.05, size * 0.62, -size * 0.04, size * 0.44, -size * 0.18, size * 0.32);
+    ctx.bezierCurveTo(-size * 0.72, -size * 0.06, -size * 0.4, -size * 0.68, 0, -size * 0.56);
+    ctx.closePath();
+
+    const gradient = ctx.createLinearGradient(0, -size * 0.6, 0, size * 0.8);
+    gradient.addColorStop(0, this.mixColor(particle.color, "#ffffff", 0.42));
+    gradient.addColorStop(0.45, this.mixColor(particle.color, "#fff7fb", 0.18));
+    gradient.addColorStop(0.72, particle.color);
+    gradient.addColorStop(1, this.mixColor(particle.color, "#f48fb1", 0.36));
+    ctx.fillStyle = gradient;
     ctx.fill();
-    
+
+    ctx.beginPath();
+    ctx.arc(0, size * 0.08, size * 0.08, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255, 240, 170, 0.9)";
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.ellipse(-size * 0.12, -size * 0.14, size * 0.18, size * 0.07, -0.5, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.32)";
+    ctx.fill();
+
     ctx.restore();
   };
 
   SnowEffect.prototype.drawLeaf = function (particle) {
     const ctx = this.ctx;
+    const size = particle.size;
+
     ctx.save();
     ctx.translate(particle.x, particle.y);
     ctx.rotate(particle.rotation);
     ctx.globalAlpha = particle.opacity;
-    
-    const size = particle.size;
+    ctx.filter = particle.blur ? "blur(" + particle.blur + "px)" : "none";
+
+    ctx.beginPath();
+    ctx.moveTo(0, -size * 0.6);
+    ctx.quadraticCurveTo(size * 0.75, -size * 0.1, size * 0.2, size * 0.7);
+    ctx.quadraticCurveTo(0, size * 0.48, -size * 0.2, size * 0.7);
+    ctx.quadraticCurveTo(-size * 0.75, -size * 0.1, 0, -size * 0.6);
+    ctx.closePath();
     ctx.fillStyle = particle.color;
-    ctx.beginPath();
-    
-    ctx.moveTo(0, -size / 2);
-    ctx.quadraticCurveTo(size / 2, -size / 4, size / 3, size / 3);
-    ctx.quadraticCurveTo(0, size / 2, -size / 3, size / 3);
-    ctx.quadraticCurveTo(-size / 2, -size / 4, 0, -size / 2);
     ctx.fill();
-    
-    ctx.strokeStyle = "rgba(0,0,0,0.2)";
-    ctx.lineWidth = 1;
+
     ctx.beginPath();
-    ctx.moveTo(0, -size / 2);
-    ctx.lineTo(0, size / 4);
+    ctx.moveTo(0, -size * 0.5);
+    ctx.lineTo(0, size * 0.48);
+    ctx.strokeStyle = "rgba(70, 95, 55, 0.28)";
+    ctx.lineWidth = 1;
     ctx.stroke();
-    
+
     ctx.restore();
   };
 
   SnowEffect.prototype.drawStar = function (particle) {
     const ctx = this.ctx;
+    const size = particle.size * 0.9;
+    const spikes = 5;
+    const outerRadius = size * 0.48;
+    const innerRadius = size * 0.2;
+
     ctx.save();
     ctx.translate(particle.x, particle.y);
     ctx.rotate(particle.rotation);
     ctx.globalAlpha = particle.opacity;
-    
-    const size = particle.size;
-    const spikes = 5;
-    const outerRadius = size / 2;
-    const innerRadius = size / 4;
-    
+    ctx.filter = particle.blur ? "blur(" + particle.blur + "px)" : "none";
     ctx.fillStyle = particle.color;
     ctx.beginPath();
-    
-    for (let i = 0; i < spikes * 2; i++) {
-      const radius = i % 2 === 0 ? outerRadius : innerRadius;
-      const angle = (i * Math.PI / spikes) - Math.PI / 2;
-      const x = radius * Math.cos(angle);
-      const y = radius * Math.sin(angle);
-      
-      if (i === 0) {
+
+    for (let index = 0; index < spikes * 2; index++) {
+      const radius = index % 2 === 0 ? outerRadius : innerRadius;
+      const angle = (index * Math.PI) / spikes - Math.PI / 2;
+      const x = Math.cos(angle) * radius;
+      const y = Math.sin(angle) * radius;
+      if (index === 0) {
         ctx.moveTo(x, y);
       } else {
         ctx.lineTo(x, y);
       }
     }
-    
+
     ctx.closePath();
     ctx.fill();
-    
     ctx.restore();
   };
 
-  SnowEffect.prototype.draw = function () {
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+  SnowEffect.prototype.mixColor = function (base, target, amount) {
+    function hexToRgb(hex) {
+      const value = hex.replace("#", "");
+      return {
+        r: parseInt(value.substring(0, 2), 16),
+        g: parseInt(value.substring(2, 4), 16),
+        b: parseInt(value.substring(4, 6), 16)
+      };
+    }
 
-    this.particles.forEach(particle => {
-      const layerFactor = 0.5 + particle.layer * 0.5;
-      
-      particle.swing += particle.swingSpeed * layerFactor;
-      const swingOffset = Math.sin(particle.swing) * particle.swingAmplitude * layerFactor;
-      
-      particle.x += swingOffset * 0.02;
-      particle.y += particle.speed * layerFactor;
-      particle.rotation += particle.rotationSpeed;
+    const start = hexToRgb(base);
+    const end = hexToRgb(target);
 
-      if (particle.y > this.canvas.height + particle.size) {
-        Object.assign(particle, this.createParticle());
-        particle.y = -particle.size - 50;
-        particle.x = Math.random() * this.canvas.width;
-      }
+    return "rgb(" + ["r", "g", "b"].map((channel) => {
+      return Math.round(start[channel] + (end[channel] - start[channel]) * amount);
+    }).join(", ") + ")";
+  };
 
-      if (particle.x < -particle.size * 2) {
-        particle.x = this.canvas.width + particle.size;
-      } else if (particle.x > this.canvas.width + particle.size * 2) {
-        particle.x = -particle.size;
-      }
+  SnowEffect.prototype.drawParticle = function (particle) {
+    switch (particle.type) {
+      case "leaf":
+        this.drawLeaf(particle);
+        break;
+      case "star":
+        this.drawStar(particle);
+        break;
+      case "sakura":
+      default:
+        this.drawSakura(particle);
+        break;
+    }
+  };
 
-      switch (particle.type) {
-        case "petal":
-          this.drawPetal(particle);
-          break;
-        case "leaf":
-          this.drawLeaf(particle);
-          break;
-        case "star":
-          this.drawStar(particle);
-          break;
-        default:
-          this.drawPetal(particle);
-      }
+  SnowEffect.prototype.updateParticle = function (particle, deltaMultiplier) {
+    particle.rotation += particle.rotationSpeed * deltaMultiplier * 60;
+    particle.x += particle.drift * deltaMultiplier * 60;
+    particle.y += particle.baseSpeed * deltaMultiplier * 60;
+
+    if (particle.y > window.innerHeight + particle.size * 1.6) {
+      this.recycleParticle(particle);
+    }
+
+    if (particle.x < -particle.size * 2) {
+      particle.x = window.innerWidth + particle.size;
+    } else if (particle.x > window.innerWidth + particle.size * 2) {
+      particle.x = -particle.size;
+    }
+  };
+
+  SnowEffect.prototype.draw = function (deltaMultiplier) {
+    if (!this.ctx) {
+      return;
+    }
+
+    this.ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+    this.particles.forEach((particle) => {
+      this.updateParticle(particle, deltaMultiplier);
+      this.drawParticle(particle);
     });
   };
 
-  SnowEffect.prototype.animate = function () {
-    if (!this.isRunning) return;
-    this.draw();
-    
-    if (!this.lastSaveTime || Date.now() - this.lastSaveTime > 500) {
-      this.saveState();
-      this.lastSaveTime = Date.now();
+  SnowEffect.prototype.animate = function (timestamp) {
+    if (!this.isRunning) {
+      return;
     }
-    
-    this.animationId = requestAnimationFrame(() => this.animate());
+
+    const frameInterval = 1000 / this.config.maxFps;
+    if (!this.lastFrameTime) {
+      this.lastFrameTime = timestamp;
+    }
+
+    const elapsed = timestamp - this.lastFrameTime;
+    if (elapsed >= frameInterval) {
+      const deltaMultiplier = Math.min(elapsed / 16.67, 2.5);
+      this.lastFrameTime = timestamp;
+      this.draw(deltaMultiplier);
+    }
+
+    this.animationId = requestAnimationFrame((nextTimestamp) => this.animate(nextTimestamp));
   };
 
   SnowEffect.prototype.start = function () {
-    if (this.isRunning) return;
+    if (this.isRunning || this.prefersReducedMotion) {
+      return;
+    }
+
+    this.ensureParticles();
     this.isRunning = true;
-    this.animate();
+    this.lastFrameTime = 0;
+    this.animationId = requestAnimationFrame((timestamp) => this.animate(timestamp));
     this.saveState();
   };
 
@@ -308,40 +422,46 @@
       this.animationId = null;
     }
     if (this.ctx) {
-      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      this.ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
     }
     this.saveState();
   };
 
   SnowEffect.prototype.setType = function (type) {
-    this.config.type = type;
-    this.particles.forEach(particle => {
-      particle.type = type;
+    this.config.type = this.normalizeType(type);
+    this.particles.forEach((particle) => {
+      particle.type = this.config.type;
     });
+    this.saveState();
   };
 
   SnowEffect.prototype.setDensity = function (density) {
     this.config.density = density;
-    while (this.particles.length < density) {
-      this.particles.push(this.createParticle());
-    }
-    if (this.particles.length > density) {
-      this.particles = this.particles.slice(0, density);
-    }
+    this.ensureParticles();
   };
 
   SnowEffect.prototype.setSpeed = function (speed) {
     this.config.speed = speed;
-    this.particles.forEach(particle => {
-      particle.speed = speed * (0.5 + Math.random() * 1);
+    this.particles.forEach((particle) => {
+      particle.baseSpeed = (0.05 + Math.random() * 0.09) * this.config.speed * (0.55 + particle.layer * 0.95);
     });
   };
 
   SnowEffect.prototype.destroy = function () {
     this.stop();
+    if (this.boundResize) {
+      window.removeEventListener("resize", this.boundResize);
+    }
+    if (this.boundThemeObserver) {
+      this.boundThemeObserver.disconnect();
+    }
+    if (this.boundBeforeUnload) {
+      window.removeEventListener("beforeunload", this.boundBeforeUnload);
+    }
     if (this.canvas && this.canvas.parentNode) {
       this.canvas.parentNode.removeChild(this.canvas);
     }
+    instance = null;
   };
 
   window.SnowEffect = SnowEffect;

@@ -37,6 +37,12 @@
     this.lastActivityTime = Date.now();
     this.lastSavedSecond = -1;
     this.pendingSeekTime = null;
+    this.retryCount = 0;
+    this.maxRetries = 3;
+    this.retryTimer = null;
+    this.saveTimer = null;
+    this.saveInterval = 5000;
+    this.isSlowNetwork = false;
     this.init();
     instance = this;
   }
@@ -82,6 +88,7 @@
             '</div>' +
           '</div>' +
           '<div class="music-progress-track" aria-hidden="true">' +
+            '<span class="music-buffer-fill"></span>' +
             '<span class="music-progress-fill"></span>' +
           '</div>' +
           '<div class="music-controls">' +
@@ -122,13 +129,24 @@
     document.body.appendChild(this.container);
   };
 
+  MusicPlayer.prototype.detectNetwork = function () {
+    var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (conn) {
+      var dominated = conn.saveData || (conn.effectiveType && (conn.effectiveType === 'slow-2g' || conn.effectiveType === '2g' || conn.effectiveType === '3g'));
+      this.isSlowNetwork = !!dominated;
+    } else {
+      this.isSlowNetwork = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    }
+  };
+
   MusicPlayer.prototype.createAudio = function () {
     if (sharedAudio) {
       this.audio = sharedAudio;
       return;
     }
+    this.detectNetwork();
     this.audio = new Audio();
-    this.audio.preload = "auto";
+    this.audio.preload = this.isSlowNetwork ? "metadata" : "auto";
     this.audio.loop = false;
     this.audio.volume = 0.5;
     this.audio.setAttribute("playsinline", "");
@@ -197,6 +215,56 @@
     } catch (error) {
       console.warn("音频预加载失败", error);
     }
+  };
+
+  MusicPlayer.prototype.scheduleRetry = function () {
+    if (this.retryCount >= this.maxRetries) {
+      this.updateSongMeta("加载失败，点击重试");
+      this.retryCount = 0;
+      return;
+    }
+    this.retryCount++;
+    var delay = Math.min(1000 * Math.pow(2, this.retryCount - 1), 8000);
+    var self = this;
+    this.updateSongMeta("加载失败，" + delay / 1000 + "秒后重试");
+    clearTimeout(this.retryTimer);
+    this.retryTimer = setTimeout(function () {
+      self.setLoading(true);
+      self.setAudioSource(self.currentIndex);
+      self.audio.load();
+      if (self.isPlaying) {
+        self.play();
+      }
+    }, delay);
+  };
+
+  MusicPlayer.prototype.scheduleSave = function () {
+    if (this.saveTimer) return;
+    var self = this;
+    this.saveTimer = setTimeout(function () {
+      self.saveTimer = null;
+      self.saveState();
+    }, this.saveInterval);
+  };
+
+  MusicPlayer.prototype.updateBufferProgress = function () {
+    var bufferFill = this.container.querySelector('.music-buffer-fill');
+    if (!bufferFill) return;
+    var duration = this.audio.duration || 0;
+    if (duration <= 0) {
+      bufferFill.style.transform = 'scaleX(0)';
+      return;
+    }
+    var buffered = this.audio.buffered;
+    var currentTime = this.audio.currentTime || 0;
+    var maxBuffered = 0;
+    for (var i = 0; i < buffered.length; i++) {
+      if (buffered.start(i) <= currentTime && buffered.end(i) > maxBuffered) {
+        maxBuffered = buffered.end(i);
+      }
+    }
+    var ratio = Math.min(maxBuffered / duration, 1);
+    bufferFill.style.transform = 'scaleX(' + ratio + ')';
   };
 
   MusicPlayer.prototype.bindPreloadUnlock = function () {
@@ -391,8 +459,10 @@
 
     this.audio.addEventListener("canplay", () => {
       this.hasPrimedAudio = true;
+      this.retryCount = 0;
       this.setLoading(false);
       this.updateProgress();
+      this.updateBufferProgress();
     });
 
     this.audio.addEventListener("loadedmetadata", () => {
@@ -403,11 +473,11 @@
 
     this.audio.addEventListener("timeupdate", () => {
       this.updateProgress();
-      const currentSecond = Math.floor(this.audio.currentTime || 0);
-      if (currentSecond !== this.lastSavedSecond) {
-        this.lastSavedSecond = currentSecond;
-        this.saveState();
-      }
+      this.scheduleSave();
+    });
+
+    this.audio.addEventListener("progress", () => {
+      this.updateBufferProgress();
     });
 
     this.audio.addEventListener("play", () => {
@@ -433,8 +503,8 @@
 
     this.audio.addEventListener("error", () => {
       this.setLoading(false);
-      this.updateSongMeta("加载失败");
-      console.warn("音乐加载失败");
+      console.warn("音乐加载失败，第" + (this.retryCount + 1) + "次尝试");
+      this.scheduleRetry();
     });
 
     document.addEventListener("keydown", (e) => {
@@ -455,10 +525,28 @@
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
         clearTimeout(this.autoHideTimer);
+        this.saveState();
       } else {
         this.resetAutoHideTimer();
+        if (this.isPlaying && this.audio.paused) {
+          this.audio.play().catch(function () {});
+        }
       }
     });
+
+    window.addEventListener("beforeunload", () => {
+      this.saveState();
+    });
+
+    var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (conn) {
+      conn.addEventListener("change", () => {
+        this.detectNetwork();
+        if (!this.isPlaying && this.audio) {
+          this.audio.preload = this.isSlowNetwork ? "metadata" : "auto";
+        }
+      });
+    }
 
     this.startAutoHideTimer();
   };
@@ -500,9 +588,15 @@
     }
 
     this.primeAudio();
+    clearTimeout(this.retryTimer);
+    this.retryCount = 0;
 
     if (!this.audio.src) {
       this.setAudioSource(this.currentIndex);
+    }
+
+    if (this.isSlowNetwork && this.audio.preload === "metadata") {
+      this.audio.preload = "auto";
     }
 
     this.setLoading(true);
@@ -555,6 +649,8 @@
     this.setLoading(true);
     this.hasPrimedAudio = false;
     this.pendingSeekTime = null;
+    this.retryCount = 0;
+    clearTimeout(this.retryTimer);
     this.setAudioSource(this.currentIndex);
     this.primeAudio();
     this.updateSongInfo();
