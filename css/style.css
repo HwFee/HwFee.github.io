@@ -1842,3 +1842,24 @@ a.tree-label:hover {
     width: 100%;
   }
 }
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.empty-icon {
+  margin-bottom: 20px;
+  opacity: 0.5;
+}
+
+.empty-title {
+  font-size: 1.5rem;
+  color: var(--text-color);
+  margin-bottom: 10px;
+}
+
+.empty-desc {
+  color: var(--text-color-light);
+  font-size: 0.9rem;
+}
