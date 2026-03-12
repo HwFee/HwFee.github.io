@@ -182,8 +182,52 @@
   // ===== 图片懒加载 =====
   function initLazyLoad() {
     const images = document.querySelectorAll(
-      '.markdown-body img[loading="lazy"]'
+      ".markdown-body img, .post-cover img"
     );
+
+    if (images.length === 0) return;
+
+    function markLoaded(img) {
+      img.classList.remove("image-pending");
+      img.classList.add("image-loaded");
+    }
+
+    images.forEach(function (img) {
+      if (!img.getAttribute("loading")) {
+        img.setAttribute("loading", "lazy");
+      }
+
+      if (!img.getAttribute("decoding")) {
+        img.setAttribute("decoding", "async");
+      }
+
+      if (img.dataset.loadBound === "true") {
+        return;
+      }
+
+      img.dataset.loadBound = "true";
+
+      if (img.complete && img.naturalWidth > 0) {
+        markLoaded(img);
+        return;
+      }
+
+      img.classList.add("image-pending");
+      img.addEventListener("load", function () {
+        markLoaded(img);
+      }, { once: true });
+      img.addEventListener("error", function () {
+        img.classList.remove("image-pending");
+      }, { once: true });
+    });
+
+    const deferredImages = Array.from(images).filter(function (img) {
+      return !!img.dataset.src;
+    });
+
+    if (deferredImages.length === 0) {
+      return;
+    }
 
     if ("IntersectionObserver" in window) {
       const observer = new IntersectionObserver(
@@ -204,10 +248,16 @@
         }
       );
 
-      images.forEach(function (img) {
+      deferredImages.forEach(function (img) {
         observer.observe(img);
       });
+      return;
     }
+
+    deferredImages.forEach(function (img) {
+      img.src = img.dataset.src;
+      img.removeAttribute("data-src");
+    });
   }
 
   // ===== 代码复制按钮 =====

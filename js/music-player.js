@@ -31,8 +31,12 @@
     this.autoHideTimer = null;
     this.autoPlayUnlockHandler = null;
     this.hasAutoPlayUnlockListeners = false;
+    this.preloadHandler = null;
+    this.hasPreloadListeners = false;
+    this.hasPrimedAudio = false;
     this.lastActivityTime = Date.now();
     this.lastSavedSecond = -1;
+    this.pendingSeekTime = null;
     this.init();
     instance = this;
   }
@@ -41,6 +45,8 @@
     this.createContainer();
     this.createAudio();
     this.bindEvents();
+    this.primeAudio();
+    this.bindPreloadUnlock();
     const hasSavedState = this.restoreState();
     this.updateSongInfo();
     if (this.config.autoPlay && !hasSavedState && this.config.musicList.length > 0) {
@@ -125,10 +131,100 @@
     this.audio.preload = "auto";
     this.audio.loop = false;
     this.audio.volume = 0.5;
+    this.audio.setAttribute("playsinline", "");
+    this.audio.setAttribute("webkit-playsinline", "");
     if (this.config.musicList.length > 0) {
-      this.audio.src = this.config.musicList[this.currentIndex].url;
+      this.setAudioSource(this.currentIndex);
     }
     sharedAudio = this.audio;
+  };
+
+  MusicPlayer.prototype.getCurrentSong = function () {
+    return this.config.musicList[this.currentIndex] || null;
+  };
+
+  MusicPlayer.prototype.getSafeMediaUrl = function (url) {
+    return url ? encodeURI(url).replace(/"/g, "%22") : "";
+  };
+
+  MusicPlayer.prototype.setAudioSource = function (index) {
+    const song = this.config.musicList[index];
+    if (!song || !song.url) {
+      return;
+    }
+
+    this.audio.src = this.getSafeMediaUrl(song.url);
+  };
+
+  MusicPlayer.prototype.queueSeek = function (time) {
+    if (!Number.isFinite(time) || time <= 0) {
+      this.pendingSeekTime = null;
+      return;
+    }
+
+    this.pendingSeekTime = time;
+    this.applyPendingSeek();
+  };
+
+  MusicPlayer.prototype.applyPendingSeek = function () {
+    if (this.pendingSeekTime === null || !this.audio || this.audio.readyState < 1) {
+      return;
+    }
+
+    const duration = Number.isFinite(this.audio.duration) ? this.audio.duration : 0;
+    const targetTime = duration > 0 ? Math.min(this.pendingSeekTime, Math.max(duration - 0.1, 0)) : this.pendingSeekTime;
+
+    try {
+      this.audio.currentTime = Math.max(targetTime, 0);
+      this.pendingSeekTime = null;
+    } catch (error) {
+      console.warn("恢复播放进度失败", error);
+    }
+  };
+
+  MusicPlayer.prototype.primeAudio = function () {
+    if (!this.audio || !this.config.musicList.length || this.hasPrimedAudio) {
+      return;
+    }
+
+    if (!this.audio.src) {
+      this.setAudioSource(this.currentIndex);
+    }
+
+    try {
+      this.audio.load();
+      this.hasPrimedAudio = true;
+    } catch (error) {
+      console.warn("音频预加载失败", error);
+    }
+  };
+
+  MusicPlayer.prototype.bindPreloadUnlock = function () {
+    if (this.hasPreloadListeners) {
+      return;
+    }
+
+    this.preloadHandler = () => {
+      this.primeAudio();
+      this.removePreloadUnlock();
+    };
+
+    ["touchstart", "pointerdown", "click", "keydown"].forEach((eventName) => {
+      document.addEventListener(eventName, this.preloadHandler, true);
+    });
+    this.hasPreloadListeners = true;
+  };
+
+  MusicPlayer.prototype.removePreloadUnlock = function () {
+    if (!this.hasPreloadListeners || !this.preloadHandler) {
+      return;
+    }
+
+    ["touchstart", "pointerdown", "click", "keydown"].forEach((eventName) => {
+      document.removeEventListener(eventName, this.preloadHandler, true);
+    });
+    this.preloadHandler = null;
+    this.hasPreloadListeners = false;
   };
 
   MusicPlayer.prototype.saveState = function () {
@@ -149,9 +245,11 @@
         if (savedState.currentIndex !== undefined) {
           this.currentIndex = savedState.currentIndex;
         }
+        if (this.config.musicList.length > 0) {
+          this.setAudioSource(this.currentIndex);
+        }
         if (savedState.currentTime !== undefined && this.config.musicList.length > 0) {
-          this.audio.src = this.config.musicList[this.currentIndex].url;
-          this.audio.currentTime = savedState.currentTime;
+          this.queueSeek(savedState.currentTime);
         }
         if (savedState.isHidden !== undefined) {
           this.isHidden = savedState.isHidden;
@@ -169,7 +267,8 @@
               this.updateButtonState();
               this.updateAlbumCoverState();
             }).catch(() => {
-              console.warn('Auto-play blocked by browser');
+              this.updateSongMeta("等待交互后继续播放");
+              this.bindAutoPlayUnlock();
             });
           } else {
             this.isPlaying = true;
@@ -291,11 +390,14 @@
     });
 
     this.audio.addEventListener("canplay", () => {
+      this.hasPrimedAudio = true;
       this.setLoading(false);
       this.updateProgress();
     });
 
     this.audio.addEventListener("loadedmetadata", () => {
+      this.hasPrimedAudio = true;
+      this.applyPendingSeek();
       this.updateProgress();
     });
 
@@ -396,7 +498,13 @@
     if (this.config.musicList.length === 0) {
       return;
     }
-    
+
+    this.primeAudio();
+
+    if (!this.audio.src) {
+      this.setAudioSource(this.currentIndex);
+    }
+
     this.setLoading(true);
     const playPromise = this.audio.play();
     if (playPromise !== undefined) {
@@ -404,7 +512,8 @@
         this.setLoading(false);
       }).catch(() => {
         this.setLoading(false);
-        this.updateSongMeta("等待播放");
+        this.updateSongMeta("等待交互后播放");
+        this.bindAutoPlayUnlock();
       });
     } else {
       this.isPlaying = true;
@@ -444,7 +553,10 @@
     if (this.config.musicList.length === 0) return;
     const wasPlaying = this.isPlaying;
     this.setLoading(true);
-    this.audio.src = this.config.musicList[this.currentIndex].url;
+    this.hasPrimedAudio = false;
+    this.pendingSeekTime = null;
+    this.setAudioSource(this.currentIndex);
+    this.primeAudio();
     this.updateSongInfo();
     this.updateProgress();
     this.saveState();
@@ -460,7 +572,7 @@
   MusicPlayer.prototype.updateSongInfo = function () {
     const songNameEl = this.container.querySelector(".music-song-name");
     if (this.config.musicList.length > 0) {
-      const song = this.config.musicList[this.currentIndex];
+      const song = this.getCurrentSong();
       songNameEl.textContent = this.truncateText(song.name, 18);
     } else {
       songNameEl.textContent = "未选择音乐";

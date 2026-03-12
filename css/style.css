@@ -398,6 +398,19 @@ button {
   transition: transform var(--transition-slow);
 }
 
+.post-cover img.image-pending,
+.markdown-body img.image-pending {
+  opacity: 0.24;
+  filter: blur(10px);
+}
+
+.post-cover img.image-loaded,
+.markdown-body img.image-loaded {
+  opacity: 1;
+  filter: none;
+  transition: opacity 0.28s ease, filter 0.28s ease, transform var(--transition-slow);
+}
+
 .post-card:hover .post-cover img {
   transform: scale(1.05);
 }
