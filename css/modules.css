@@ -390,6 +390,65 @@
   }
 }
 
+[data-theme="dark"] .music-player-content {
+  background: linear-gradient(155deg, rgba(30, 41, 59, 0.82) 0%, rgba(15, 23, 42, 0.72) 54%, rgba(30, 41, 59, 0.62) 100%);
+  border: 1px solid rgba(71, 85, 105, 0.32);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.16);
+}
+
+[data-theme="dark"] .music-player-content::before {
+  background: linear-gradient(180deg, rgba(71, 85, 105, 0.15), rgba(15, 23, 42, 0.06) 46%),
+    radial-gradient(circle at 14% 18%, rgba(71, 85, 105, 0.2), transparent 42%),
+    radial-gradient(circle at 78% 80%, rgba(59, 130, 246, 0.12), transparent 48%);
+}
+
+[data-theme="dark"] .music-player-content::after {
+  background: linear-gradient(118deg, rgba(71, 85, 105, 0.2), transparent 26%);
+}
+
+[data-theme="dark"] .music-player-shell::before {
+  background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 42%),
+    linear-gradient(135deg, rgba(71, 85, 105, 0.2), transparent 56%);
+}
+
+[data-theme="dark"] .music-album-cover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .music-album-cover-inner {
+  background: radial-gradient(circle at 30% 28%, rgba(71, 85, 105, 0.6), rgba(30, 41, 59, 0.3) 32%),
+    linear-gradient(150deg, rgba(59, 130, 246, 0.5) 0%, rgba(30, 64, 175, 0.6) 100%);
+}
+
+[data-theme="dark"] .music-album-cover-inner::before {
+  background: rgba(30, 41, 59, 0.9);
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.3);
+}
+
+[data-theme="dark"] .music-album-cover-inner::after {
+  border: 1px solid rgba(71, 85, 105, 0.22);
+}
+
+[data-theme="dark"] .music-song-name,
+[data-theme="dark"] .music-song-meta {
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .music-progress-track {
+  background: rgba(71, 85, 105, 0.2);
+}
+
+[data-theme="dark"] .music-prev-btn,
+[data-theme="dark"] .music-next-btn {
+  color: rgba(203, 213, 225, 0.68);
+}
+
+[data-theme="dark"] .music-prev-btn:hover,
+[data-theme="dark"] .music-next-btn:hover {
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.15);
+}
+
 @media (max-width: 768px) {
   .music-player {
     bottom: 320px;
