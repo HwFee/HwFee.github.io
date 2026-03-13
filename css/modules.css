@@ -568,3 +568,21 @@
     width: 100%;
   }
 }
+
+[data-theme="dark"] .comments-panel {
+  background: rgba(30, 41, 59, 0.72);
+  border: 1px solid rgba(71, 85, 105, 0.24);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .comments-panel-title {
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .comments-status {
+  color: var(--text-secondary);
+}
+
+[data-theme="dark"] .comments-status.is-error {
+  color: #f87171;
+}
