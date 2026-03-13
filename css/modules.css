@@ -161,27 +161,6 @@
   animation-play-state: paused;
 }
 
-.music-album-cover-inner::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
-}
-
-.music-album-cover-inner::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-}
-
 .music-album-cover-inner.rotating {
   animation-play-state: running;
 }
@@ -418,15 +397,6 @@
 [data-theme="dark"] .music-album-cover-inner {
   background: radial-gradient(circle at 30% 28%, rgba(71, 85, 105, 0.6), rgba(30, 41, 59, 0.3) 32%),
     linear-gradient(150deg, rgba(59, 130, 246, 0.5) 0%, rgba(30, 64, 175, 0.6) 100%);
-}
-
-[data-theme="dark"] .music-album-cover-inner::before {
-  background: rgba(30, 41, 59, 0.9);
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.3);
-}
-
-[data-theme="dark"] .music-album-cover-inner::after {
-  border: 1px solid rgba(71, 85, 105, 0.22);
 }
 
 [data-theme="dark"] .music-song-name,
