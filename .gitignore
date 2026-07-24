@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Content excluded from GitHub Pages (violates GitHub Acceptable Use Policy)
+public/gallery/fallen-feathers.jpg
+public/gallery/velvet-repose.png
+src/data/works/fallen-feathers.json
+src/data/works/velvet-repose.json
